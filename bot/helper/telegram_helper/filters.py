@@ -1,45 +1,69 @@
-from telegram.ext import MessageFilter
-from telegram import Message
+#!/usr/bin/env python3
+from pyrogram.filters import create
+from pyrogram.enums import ChatType
+
 from bot import user_data, OWNER_ID
+from bot.helper.telegram_helper.message_utils import chat_info
 
 
 class CustomFilters:
-    class __OwnerFilter(MessageFilter):
-        def filter(self, message: Message):
-            return message.from_user.id == OWNER_ID
 
-    owner_filter = __OwnerFilter()
+    async def owner_filter(self, _, message):
+        user = message.from_user or message.sender_chat
+        uid = user.id
+        return uid == OWNER_ID
 
-    class __AuthorizedUserFilter(MessageFilter):
-        def filter(self, message: Message):
-            uid = message.from_user.id
-            return uid == OWNER_ID or uid in user_data and (user_data[uid].get('is_auth') or user_data[uid].get('is_sudo'))
+    owner = create(owner_filter)
 
-    authorized_user = __AuthorizedUserFilter()
+    async def authorized_user(self, _, message):
+        user = message.from_user or message.sender_chat
+        uid = user.id
+        if bool(uid == OWNER_ID or (uid in user_data and (user_data[uid].get('is_auth', False) or user_data[uid].get('is_sudo', False)))):
+            return True
+        
+        auth_chat = False
+        chat_id = message.chat.id
+        if chat_id in user_data and user_data[chat_id].get('is_auth', False):
+            if len(topic_ids := user_data[chat_id].get('topic_ids', [])) == 0:
+                auth_chat = True
+            elif (is_forum := message.reply_to_message) and ((is_forum.text is None and is_forum.caption is None and is_forum.id in topic_ids)
+                or ((is_forum.text or is_forum.caption) and ((not is_forum.reply_to_top_message_id and is_forum.reply_to_message_id in topic_ids)
+                or (is_forum.reply_to_top_message_id in topic_ids)))):
+                auth_chat = True
+        return auth_chat
+    
+    authorized = create(authorized_user)
+    
+    async def authorized_usetting(self, _, message):
+        uid = (message.from_user or message.sender_chat).id
+        chat_id = message.chat.id
+        isExists = False
+        if uid == OWNER_ID or (uid in user_data and (user_data[uid].get('is_auth', False) or user_data[uid].get('is_sudo', False))) or (chat_id in user_data and user_data[chat_id].get('is_auth', False)):
+            isExists = True
+        elif message.chat.type == ChatType.PRIVATE:
+            for channel_id in user_data:
+                if not (user_data[channel_id].get('is_auth') and str(channel_id).startswith('-100')):
+                    continue
+                try:
+                    if await (await chat_info(str(channel_id))).get_member(uid):
+                        isExists = True
+                        break
+                except:
+                    continue
+        return isExists
+        
+    authorized_uset = create(authorized_usetting)
 
-    class __AuthorizedChat(MessageFilter):
-        def filter(self, message: Message):
-            uid = message.chat.id
-            return uid in user_data and user_data[uid].get('is_auth')
+    async def sudo_user(self, _, message):
+        user = message.from_user or message.sender_chat
+        uid = user.id
+        return bool(uid == OWNER_ID or uid in user_data and user_data[uid].get('is_sudo'))
 
-    authorized_chat = __AuthorizedChat()
-
-    class __SudoUser(MessageFilter):
-        def filter(self, message: Message):
-            uid = message.from_user.id
-            return uid in user_data and user_data[uid].get('is_sudo')
-
-    sudo_user = __SudoUser()
-
-    class __PaidUser(MessageFilter):
-        def filter(self, message: Message):
-            uid = message.from_user.id
-           
-            return uid in user_data and user_data[uid].get('is_paid')
-
-    paid_user = __PaidUser()
-
-    @staticmethod
-    def owner_query(uid):
-        return (uid == OWNER_ID) or (uid in user_data and user_data[uid].get('is_sudo'))
-
+    sudo = create(sudo_user)
+    
+    async def blacklist_user(self, _, message):
+        user = message.from_user or message.sender_chat
+        uid = user.id
+        return bool(uid != OWNER_ID and uid in user_data and user_data[uid].get('is_blacklist'))
+        
+    blacklisted = create(blacklist_user)
