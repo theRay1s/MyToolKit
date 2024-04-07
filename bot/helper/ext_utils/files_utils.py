@@ -7,7 +7,7 @@ from shutil import rmtree
 from subprocess import run as srun
 from sys import exit as sexit
 
-from bot import aria2, LOGGER, DOWNLOAD_DIR, get_client
+from bot import aria2, LOGGER, DOWNLOAD_DIR, get_qb_client
 from bot.helper.ext_utils.bot_utils import sync_to_async, cmd_exec
 from .exceptions import NotSupportedExtractionArchive
 
@@ -73,7 +73,7 @@ async def clean_target(path):
         LOGGER.info(f"Cleaning Target: {path}")
         try:
             if await aiopath.isdir(path):
-                await aiormtree(path)
+                await aiormtree(path, ignore_errors=True)
             else:
                 await remove(path)
         except Exception as e:
@@ -84,16 +84,17 @@ async def clean_download(path):
     if await aiopath.exists(path):
         LOGGER.info(f"Cleaning Download: {path}")
         try:
-            await aiormtree(path)
+            await aiormtree(path, ignore_errors=True)
         except Exception as e:
             LOGGER.error(str(e))
 
 
 def clean_all():
     aria2.remove_all(True)
-    get_client().torrents_delete(torrent_hashes="all")
+    get_qb_client().torrents_delete(torrent_hashes="all")
     try:
-        rmtree(DOWNLOAD_DIR)
+        LOGGER.info("Cleaning Download Directory...")
+        rmtree(DOWNLOAD_DIR, ignore_errors=True)
     except:
         pass
     makedirs(DOWNLOAD_DIR, exist_ok=True)
@@ -103,25 +104,27 @@ def exit_clean_up(signal, frame):
     try:
         LOGGER.info("Please wait, while we clean up and stop the running downloads")
         clean_all()
-        srun(["pkill", "-9", "-f", "gunicorn|aria2c|qbittorrent-nox|ffmpeg"])
+        srun(["pkill", "-9", "-f", "gunicorn|aria2c|qbittorrent-nox|ffmpeg|java"])
         sexit(0)
     except KeyboardInterrupt:
         LOGGER.warning("Force Exiting before the cleanup finishes!")
         sexit(1)
 
 
-async def clean_unwanted(path):
+async def clean_unwanted(path, custom_list=[]):
     LOGGER.info(f"Cleaning unwanted files/folders: {path}")
     for dirpath, _, files in await sync_to_async(walk, path, topdown=False):
         for filee in files:
+            f_path = ospath.join(dirpath, filee)
             if (
                 filee.endswith(".!qB")
+                or f_path in custom_list
                 or filee.endswith(".parts")
                 and filee.startswith(".")
             ):
-                await remove(ospath.join(dirpath, filee))
+                await remove(f_path)
         if dirpath.endswith((".unwanted", "splited_files_mltb", "copied_mltb")):
-            await aiormtree(dirpath)
+            await aiormtree(dirpath, ignore_errors=True)
     for dirpath, _, files in await sync_to_async(walk, path, topdown=False):
         if not await listdir(dirpath):
             await rmdir(dirpath)
@@ -131,21 +134,25 @@ async def get_path_size(path):
     if await aiopath.isfile(path):
         return await aiopath.getsize(path)
     total_size = 0
-    for root, dirs, files in await sync_to_async(walk, path):
+    for root, _, files in await sync_to_async(walk, path):
         for f in files:
             abs_path = ospath.join(root, f)
             total_size += await aiopath.getsize(abs_path)
     return total_size
 
 
-async def count_files_and_folders(path, extension_filter):
+async def count_files_and_folders(path, extension_filter, unwanted_files=[]):
     total_files = 0
     total_folders = 0
-    for _, dirs, files in await sync_to_async(walk, path):
+    for dirpath, dirs, files in await sync_to_async(walk, path):
         total_files += len(files)
         for f in files:
             if f.endswith(tuple(extension_filter)):
                 total_files -= 1
+            elif unwanted_files:
+                f_path = ospath.join(dirpath, f)
+                if f_path in unwanted_files:
+                    total_files -= 1
         total_folders += len(dirs)
     return total_folders, total_files
 

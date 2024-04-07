@@ -57,7 +57,7 @@ async def select(_, message):
     ):
         await sendMessage(message, "This task is not for you!")
         return
-    if task.status() not in [
+    if await sync_to_async(task.status) not in [
         MirrorStatus.STATUS_DOWNLOADING,
         MirrorStatus.STATUS_PAUSED,
         MirrorStatus.STATUS_QUEUEDL,
@@ -72,6 +72,7 @@ async def select(_, message):
         return
 
     try:
+        await sync_to_async(task.update)
         if task.listener.isQbit:
             id_ = task.hash()
             if not task.queued:
