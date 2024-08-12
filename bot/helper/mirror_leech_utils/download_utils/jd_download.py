@@ -35,6 +35,7 @@ from bot.helper.telegram_helper.message_utils import (
     deleteMessage,
 )
 
+
 @new_task
 async def configureDownload(_, query, obj):
     data = query.data.split()
@@ -120,12 +121,11 @@ async def add_jd_download(listener, path):
         elif odl := await retry_function(
             jdownloader.device.linkgrabber.query_packages, [{}]
         ):
-            odl_list = [
+            if odl_list := [
                 od["uuid"]
                 for od in odl
                 if od.get("saveTo", "").startswith("/root/Downloads/")
-            ]
-            if odl_list:
+            ]:
                 await retry_function(
                     jdownloader.device.linkgrabber.remove_links,
                     package_ids=odl_list,
@@ -268,7 +268,12 @@ async def add_jd_download(listener, path):
 
     msg, button = await stop_duplicate_check(listener)
     if msg:
+        await retry_function(
+            jdownloader.device.linkgrabber.remove_links, package_ids=online_packages
+        )
         await listener.onDownloadError(msg, button)
+        async with jd_lock:
+            del jd_downloads[gid]
         return
 
     if listener.select and await JDownloaderHelper(listener).waitForConfigurations():

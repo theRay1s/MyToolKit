@@ -158,7 +158,7 @@ async def get_user_settings(from_user):
         ex_ex = "None"
 
     ns_msg = "Added" if user_dict.get("name_sub", False) else "None"
-    buttons.ibutton("Name Subtitute", f"userset {user_id} name_subtitute")
+    buttons.ibutton("Name Subtitute", f"userset {user_id} name_substitute")
 
     buttons.ibutton("YT-DLP Options", f"userset {user_id} yto")
     if user_dict.get("yt_opt", False):
@@ -591,7 +591,7 @@ Stop Duplicate is <b>{sd_msg}</b>"""
 Send YT-DLP Options. Timeout: 60 sec
 Format: key:value|key:value|key:value.
 Example: format:bv*+mergeall[vcodec=none]|nocheckcertificate:True
-Check all yt-dlp api options from this <a href='https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/YoutubeDL.py#L184'>FILE</a> or use this <a href='https://t.me/mltb_official/177'>script</a> to convert cli arguments to api options.
+Check all yt-dlp api options from this <a href='https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/YoutubeDL.py#L184'>FILE</a> or use this <a href='https://t.me/mltb_official_channel/177'>script</a> to convert cli arguments to api options.
         """
         await editMessage(message, rmsg, buttons.build_menu(1))
         pfunc = partial(set_option, pre_event=query, option="yt_opt")
@@ -723,23 +723,26 @@ Check all yt-dlp api options from this <a href='https://github.com/yt-dlp/yt-dlp
         )
         pfunc = partial(set_option, pre_event=query, option="excluded_extensions")
         await event_handler(client, query, pfunc)
-    elif data[2] == "name_subtitute":
+    elif data[2] == "name_substitute":
         await query.answer()
         buttons = ButtonMaker()
-        if user_dict.get(data[2], False):
+        if user_dict.get("name_sub", False):
             buttons.ibutton("Remove Name Subtitute", f"userset {user_id} name_sub")
         buttons.ibutton("Back", f"userset {user_id} back")
         buttons.ibutton("Close", f"userset {user_id} close")
-        emsg = f"""Word Subtitions. You can add pattern instead of normal text. Timeout: 60 sec
-Example: 'text : code : s|mirror : leech|tea :  : s|clone'
-
+        emsg = r"""Word Subtitions. You can add pattern instead of normal text. Timeout: 60 sec
+NOTE: You must add \ before any character, those are the characters: \^$.|?*+()[]{}-
+Example-1: text : code : s|mirror : leech|tea :  : s|clone
 1. text will get replaced by code with sensitive case
 2. mirror will get replaced by leech
 4. tea will get removed with sensitive case
 5. clone will get removed
-
-Your Current Value is {user_dict.get('name_sub') or 'not added yet!'}
+Example-2: \(text\) | \[test\] : test | \\text\\ : text : s
+1. (text) will get removed
+2. [test] will get replaced by test
+3. \text\ will get replaced by text with sensitive case
 """
+        emsg += f"Your Current Value is {user_dict.get('name_sub') or 'not added yet!'}"
         await editMessage(
             message,
             emsg,
