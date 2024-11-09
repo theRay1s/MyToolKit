@@ -9,13 +9,11 @@ data*
 log.txt
 accounts/*
 Thumbnails/*
-MediaInfo/*
-Images/*
 rclone/*
+tokens/*
+sabnzbd/*
 list_drives.txt
 cookies.txt
 downloads
-bot.session
-user.session
-terabox.txt
+bot.session*
 rclone.conf
