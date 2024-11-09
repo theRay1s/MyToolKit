@@ -1,10 +1,13 @@
-This Telegram Bot, based on [python-aria-mirror-bot](https://github.com/lzzy12/python-aria-mirror-bot), has undergone
-substantial modifications and is designed for efficiently mirroring or leeching files from the Internet to various
-destinations, including Google Drive, Telegram, or any rclone-supported cloud. It is built using asynchronous
-programming in Python.
+<p align="center">
+    <a href="https://github.com/theRay1s/MyToolKit">
+        <kbd>
+            <img width="250" src="https://github.com/theRay1s/theRay1s.github.io/blob/main/images/APD%20CLOUD.png" alt="APD Logo">
+        </kbd>
+    </a>
 
-- **TELEGRAM CHANNEL:** https://t.me/mltb_official_channel
-- **TELEGRAM GROUP:** https://t.me/mltb_official_support
+<i>A Telegram Bot written in Python using Pyrogram Framework for mirroring/cloning online/local files on the Internet to your Google Drive, Telegram or to any RClone supported cloud. Based on [python-aria-mirror-bot](https://github.com/lzzy12/python-aria-mirror-bot). This is Enhanced Version of Base Repo [mirror-leech-telegram-bot](https://github.com/anasty17/mirror-leech-telegram-bot)</i>
+
+</p>
 
 # Features
 
