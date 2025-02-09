@@ -1,10 +1,7 @@
-config.env
-*.pyc
-data*
-.vscode
-.idea
-*.json
-*.pickle
+mltbenv/*
+config.py
+token.pickle
+rclone.conf
 .netrc
 log.txt
 accounts/*
@@ -14,6 +11,5 @@ tokens/*
 sabnzbd/*
 list_drives.txt
 cookies.txt
-downloads
-bot.session*
-rclone.conf
+downloads/*
+*.session

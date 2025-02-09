@@ -12,6 +12,7 @@ class TelegramStatus:
         self._size = self.listener.size
         self._gid = gid
         self._status = status
+        self.tool = "telegram"
 
     def processed_bytes(self):
         return get_readable_file_size(self._obj.processed_bytes)
@@ -21,8 +22,8 @@ class TelegramStatus:
 
     def status(self):
         if self._status == "up":
-            return MirrorStatus.STATUS_UPLOADING
-        return MirrorStatus.STATUS_DOWNLOADING
+            return MirrorStatus.STATUS_UPLOAD
+        return MirrorStatus.STATUS_DOWNLOAD
 
     def name(self):
         return self.listener.name

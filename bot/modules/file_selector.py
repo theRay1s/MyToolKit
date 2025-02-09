@@ -1,27 +1,19 @@
 from aiofiles.os import remove, path as aiopath
-from pyrogram.filters import command, regex
-from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 
-from bot import (
-    bot,
-    aria2,
+from .. import (
     task_dict,
     task_dict_lock,
-    OWNER_ID,
     user_data,
     LOGGER,
-    config_dict,
-    qbittorrent_client,
     sabnzbd_client,
 )
+from ..core.config_manager import Config
+from ..core.torrent_manager import TorrentManager
 from ..helper.ext_utils.bot_utils import (
     bt_selection_buttons,
-    sync_to_async,
     new_task,
 )
 from ..helper.ext_utils.status_utils import get_task_by_gid, MirrorStatus
-from ..helper.telegram_helper.bot_commands import BotCommands
-from ..helper.telegram_helper.filters import CustomFilters
 from ..helper.telegram_helper.message_utils import (
     send_message,
     send_status_message,
@@ -31,7 +23,7 @@ from ..helper.telegram_helper.message_utils import (
 
 @new_task
 async def select(_, message):
-    if not config_dict["BASE_URL"]:
+    if not Config.BASE_URL:
         await send_message(message, "Base URL not defined!")
         return
     user_id = message.from_user.id
@@ -58,14 +50,14 @@ async def select(_, message):
         return
 
     if (
-        OWNER_ID != user_id
+        Config.OWNER_ID != user_id
         and task.listener.user_id != user_id
         and (user_id not in user_data or not user_data[user_id].get("is_sudo"))
     ):
         await send_message(message, "This task is not for you!")
         return
-    if await sync_to_async(task.status) not in [
-        MirrorStatus.STATUS_DOWNLOADING,
+    if await task.status() not in [
+        MirrorStatus.STATUS_DOWNLOAD,
         MirrorStatus.STATUS_PAUSED,
         MirrorStatus.STATUS_QUEUEDL,
     ]:
@@ -79,20 +71,17 @@ async def select(_, message):
         return
 
     try:
-        id_ = task.gid()
         if not task.queued:
+            await task.update()
+            id_ = task.gid()
             if task.listener.is_nzb:
                 await sabnzbd_client.pause_job(id_)
             elif task.listener.is_qbit:
-                await sync_to_async(task.update)
                 id_ = task.hash()
-                await sync_to_async(
-                    qbittorrent_client.torrents_pause, torrent_hashes=id_
-                )
+                await TorrentManager.qbittorrent.torrents.stop([id_])
             else:
-                await sync_to_async(task.update)
                 try:
-                    await sync_to_async(aria2.client.force_pause, id_)
+                    await TorrentManager.aria2.forcePause(id_)
                 except Exception as e:
                     LOGGER.error(
                         f"{e} Error in pause, this mostly happens after abuse aria2"
@@ -108,7 +97,7 @@ async def select(_, message):
 
 
 @new_task
-async def get_confirm(_, query):
+async def confirm_selection(_, query):
     user_id = query.from_user.id
     data = query.data.split()
     message = query.message
@@ -126,15 +115,11 @@ async def get_confirm(_, query):
         id_ = data[3]
         if hasattr(task, "seeding"):
             if task.listener.is_qbit:
-                tor_info = (
-                    await sync_to_async(
-                        qbittorrent_client.torrents_info, torrent_hash=id_
-                    )
-                )[0]
+                tor_info = (await TorrentManager.qbittorrent.torrents.info(hashes=[id_]))[
+                    0
+                ]
                 path = tor_info.content_path.rsplit("/", 1)[0]
-                res = await sync_to_async(
-                    qbittorrent_client.torrents_files, torrent_hash=id_
-                )
+                res = await TorrentManager.qbittorrent.torrents.files(id_)
                 for f in res:
                     if f.priority == 0:
                         f_paths = [f"{path}/{f.name}", f"{path}/{f.name}.!qB"]
@@ -145,11 +130,9 @@ async def get_confirm(_, query):
                                 except:
                                     pass
                 if not task.queued:
-                    await sync_to_async(
-                        qbittorrent_client.torrents_resume, torrent_hashes=id_
-                    )
+                    await TorrentManager.qbittorrent.torrents.start([id_])
             else:
-                res = await sync_to_async(aria2.client.get_files, id_)
+                res = await TorrentManager.aria2.getFiles(id_)
                 for f in res:
                     if f["selected"] == "false" and await aiopath.exists(f["path"]):
                         try:
@@ -158,7 +141,7 @@ async def get_confirm(_, query):
                             pass
                 if not task.queued:
                     try:
-                        await sync_to_async(aria2.client.unpause, id_)
+                        await TorrentManager.aria2.unpause(id_)
                     except Exception as e:
                         LOGGER.error(
                             f"{e} Error in resume, this mostly happens after abuse aria2. Try to use select cmd again!"
@@ -170,13 +153,3 @@ async def get_confirm(_, query):
     else:
         await delete_message(message)
         await task.cancel_task()
-
-
-bot.add_handler(
-    MessageHandler(
-        select,
-        filters=command(BotCommands.SelectCommand, case_sensitive=True)
-        & CustomFilters.authorized,
-    )
-)
-bot.add_handler(CallbackQueryHandler(get_confirm, filters=regex("^sel")))

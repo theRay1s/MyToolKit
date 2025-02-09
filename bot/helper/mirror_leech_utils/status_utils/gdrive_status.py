@@ -1,4 +1,4 @@
-from bot.helper.ext_utils.status_utils import (
+from ....helper.ext_utils.status_utils import (
     MirrorStatus,
     get_readable_file_size,
     get_readable_time,
@@ -12,6 +12,7 @@ class GoogleDriveStatus:
         self._size = self.listener.size
         self._gid = gid
         self._status = status
+        self.tool = "gDriveApi"
 
     def processed_bytes(self):
         return get_readable_file_size(self._obj.processed_bytes)
@@ -21,11 +22,11 @@ class GoogleDriveStatus:
 
     def status(self):
         if self._status == "up":
-            return MirrorStatus.STATUS_UPLOADING
+            return MirrorStatus.STATUS_UPLOAD
         elif self._status == "dl":
-            return MirrorStatus.STATUS_DOWNLOADING
+            return MirrorStatus.STATUS_DOWNLOAD
         else:
-            return MirrorStatus.STATUS_CLONING
+            return MirrorStatus.STATUS_CLONE
 
     def name(self):
         return self.listener.name

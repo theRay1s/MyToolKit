@@ -4,12 +4,12 @@ from re import search as re_search
 from secrets import token_urlsafe
 from yt_dlp import YoutubeDL, DownloadError
 
-from bot import task_dict_lock, task_dict
+from .... import task_dict_lock, task_dict
 from ...ext_utils.bot_utils import sync_to_async, async_to_sync
 from ...ext_utils.task_manager import check_running_tasks, stop_duplicate_check
 from ...mirror_leech_utils.status_utils.queue_status import QueueStatus
 from ...telegram_helper.message_utils import send_status_message
-from ..status_utils.yt_dlp_download_status import YtDlpStatus
+from ..status_utils.yt_dlp_status import YtDlpStatus
 
 LOGGER = getLogger(__name__)
 
@@ -49,7 +49,6 @@ class YoutubeDLHelper:
         self._eta = "-"
         self._listener = listener
         self._gid = ""
-        self._downloading = False
         self._ext = ""
         self.is_playlist = False
         self.opts = {
@@ -64,6 +63,8 @@ class YoutubeDLHelper:
             "overwrites": True,
             "writethumbnail": True,
             "trim_file_name": 220,
+            "fragment_retries": 10,
+            "retries": 10,
             "retry_sleep_functions": {
                 "http": lambda n: 3,
                 "fragment": lambda n: 3,
@@ -93,7 +94,6 @@ class YoutubeDLHelper:
         return self._eta
 
     def _on_download_progress(self, d):
-        self._downloading = True
         if self._listener.is_cancelled:
             raise ValueError("Cancelling...")
         if d["status"] == "finished":
@@ -145,9 +145,9 @@ class YoutubeDLHelper:
                     if not entry:
                         continue
                     elif "filesize_approx" in entry:
-                        self._listener.size += entry["filesize_approx"]
+                        self._listener.size += entry.get("filesize_approx", 0)
                     elif "filesize" in entry:
-                        self._listener.size += entry["filesize"]
+                        self._listener.size += entry.get("filesize", 0)
                     if not self._listener.name:
                         outtmpl_ = "%(series,playlist_title,channel)s%(season_number& |)s%(season_number&S|)s%(season_number|)02d.%(ext)s"
                         self._listener.name, ext = ospath.splitext(
@@ -184,8 +184,9 @@ class YoutubeDLHelper:
             if self._listener.is_cancelled:
                 return
             async_to_sync(self._listener.on_download_complete)
-        except ValueError:
-            self._on_download_error("Download Stopped by User!")
+        except:
+            pass
+        return
 
     async def add_download(self, path, qual, playlist, options):
         if playlist:
@@ -336,25 +337,10 @@ class YoutubeDLHelper:
     async def cancel_task(self):
         self._listener.is_cancelled = True
         LOGGER.info(f"Cancelling Download: {self._listener.name}")
-        if not self._downloading:
-            await self._listener.on_download_error("Download Cancelled by User!")
+        await self._listener.on_download_error("Stopped by User!")
 
     def _set_options(self, options):
-        options = options.split("|")
-        for opt in options:
-            key, value = map(str.strip, opt.split(":", 1))
-            if value.startswith("^"):
-                if "." in value or value == "^inf":
-                    value = float(value.split("^", 1)[1])
-                else:
-                    value = int(value.split("^", 1)[1])
-            elif value.lower() == "true":
-                value = True
-            elif value.lower() == "false":
-                value = False
-            elif value.startswith(("{", "[", "(")) and value.endswith(("}", "]", ")")):
-                value = eval(value)
-
+        for key, value in options.items():
             if key == "postprocessors":
                 if isinstance(value, list):
                     self.opts[key].extend(tuple(value))
