@@ -12,8 +12,8 @@ from .. import (
     DOWNLOAD_DIR,
 )
 from ..core.torrent_manager import TorrentManager
+from ..core.jdownloader_booter import jdownloader
 from ..helper.ext_utils.bot_utils import new_task
-from bot.core.jdownloader_booter import jdownloader
 from ..helper.ext_utils.status_utils import (
     MirrorStatus,
     get_readable_file_size,
@@ -105,7 +105,7 @@ async def status_pages(_, query):
         ds, ss = await TorrentManager.overall_speed()
         if sabnzbd_client.LOGGED_IN:
             sds = await sabnzbd_client.get_downloads()
-            sds = int(sds.get("kbpersec", "0")) * 1024
+            sds = int(float(sds["queue"].get("kbpersec", "0"))) * 1024
             ds += sds
         if jdownloader.is_connected:
             jdres = await jdownloader.device.downloadcontroller.get_speed_in_bytes()
