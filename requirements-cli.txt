@@ -4,4 +4,5 @@ progress
 progressbar2
 httplib2shim
 google_auth_oauthlib
-kurigram
+pyrogram==2.0.77
+tgcrypto

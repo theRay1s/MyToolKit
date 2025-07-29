@@ -1,34 +1,36 @@
+#!/usr/bin/env python3
+from string import ascii_letters
+from random import SystemRandom
 from asyncio import sleep
-from secrets import token_urlsafe
 from telegraph.aio import Telegraph
 from telegraph.exceptions import RetryAfterError
 
-from ... import LOGGER
+from bot import LOGGER, bot_loop, config_dict
 
 
 class TelegraphHelper:
     def __init__(self, author_name=None, author_url=None):
-        self._telegraph = Telegraph(domain="graph.org")
-        self._author_name = author_name
-        self._author_url = author_url
+        self.telegraph = Telegraph(domain="graph.org")
+        self.short_name = "".join(SystemRandom().choices(ascii_letters, k=8))
+        self.access_token = None
+        self.author_name = author_name
+        self.author_url = author_url
 
     async def create_account(self):
-        LOGGER.info("Creating Telegraph Account")
-        try:
-            await self._telegraph.create_account(
-                short_name=token_urlsafe(8),
-                author_name=self._author_name,
-                author_url=self._author_url,
-            )
-        except Exception as e:
-            LOGGER.error(f"Failed to create Telegraph Account: {e}")
+        await self.telegraph.create_account(
+            short_name=self.short_name,
+            author_name=self.author_name,
+            author_url=self.author_url,
+        )
+        self.access_token = self.telegraph.get_access_token()
+        LOGGER.info(f"Telegraph Account Generated : {self.short_name}")
 
     async def create_page(self, title, content):
         try:
-            return await self._telegraph.create_page(
+            return await self.telegraph.create_page(
                 title=title,
-                author_name=self._author_name,
-                author_url=self._author_url,
+                author_name=self.author_name,
+                author_url=self.author_url,
                 html_content=content,
             )
         except RetryAfterError as st:
@@ -40,11 +42,11 @@ class TelegraphHelper:
 
     async def edit_page(self, path, title, content):
         try:
-            return await self._telegraph.edit_page(
+            return await self.telegraph.edit_page(
                 path=path,
                 title=title,
-                author_name=self._author_name,
-                author_url=self._author_url,
+                author_name=self.author_name,
+                author_url=self.author_url,
                 html_content=content,
             )
         except RetryAfterError as st:
@@ -73,14 +75,12 @@ class TelegraphHelper:
                     nxt_page += 1
             await self.edit_page(
                 path=path[prev_page],
-                title="Mirror-leech-bot Torrent Search",
+                title=f"{config_dict['TITLE_NAME']} Torrent Search",
                 content=content,
             )
         return
 
 
-telegraph = TelegraphHelper(
-    "Mirror-Leech-Telegram-Bot", "https://github.com/anasty17/mirror-leech-telegram-bot"
-)
+telegraph = TelegraphHelper(config_dict["AUTHOR_NAME"], config_dict["AUTHOR_URL"])
 
-print(__name__)
+bot_loop.run_until_complete(telegraph.create_account())
